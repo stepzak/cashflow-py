@@ -1,6 +1,7 @@
 import calendar
 import re
 from datetime import date, timedelta
+from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 
@@ -114,4 +115,28 @@ def _generate_daily_dates(
         if candidate > after_date:
             result.append(candidate)
         candidate += timedelta(days=day_step)
+    return result
+
+def year_fraction(start_date: date, end_date: date, convention: str) -> Decimal:
+    if end_date < start_date:
+        raise ValueError("end_date cannot be earlier than start_date")
+
+    if end_date == start_date:
+        return Decimal(0)
+
+    if convention == "ACT/365":
+        days = (end_date - start_date).days
+        return Decimal(days) / Decimal(365)
+    if convention not in {"ACT/ACT", "ACT/ACT ISDA"}:
+        raise ValueError(f"unsupported day-count convention: {convention!r}")
+
+    result = Decimal(0)
+    period_start = start_date
+    while period_start < end_date:
+        next_year = date(period_start.year + 1, 1, 1)
+        period_end = min(end_date, next_year)
+        actual_days = (period_end - period_start).days
+        days_in_year = 366 if calendar.isleap(period_start.year) else 365
+        result += Decimal(actual_days) / Decimal(days_in_year)
+        period_start = period_end
     return result
