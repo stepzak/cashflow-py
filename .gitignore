@@ -5,3 +5,4 @@
 backups
 data/*
 *.csv
+__pycache__/
