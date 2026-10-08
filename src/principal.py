@@ -38,10 +38,6 @@ def build_principal_schedule(
     if deal.discriminator == "ANN":
         payment_dates = principal_payment_dates(deal)
         if annuity_period_rates is None:
-            if deal.sub_rate_spec is not None:
-                raise ValueError(
-                    "ANN with sub-rate terms requires explicit period rates"
-                )
             annuity_period_rates = fixed_period_rates(deal, payment_dates)
         return build_annuity_principal_schedule(
             deal.outstanding_principal,
