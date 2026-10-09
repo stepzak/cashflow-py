@@ -5,4 +5,5 @@
 backups
 data/*
 *.csv
+!data/cbkey1m.csv
 __pycache__/

@@ -88,3 +88,12 @@ class CashFlow:
 
     balance_before: Decimal
     balance_after: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class DiscountedCashFlow:
+    cashflow: CashFlow
+    discount_factor: Decimal
+    discounted_principal_cf: Decimal
+    discounted_interest_cf: Decimal
+    present_value: Decimal

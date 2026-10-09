@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from src.dates import generate_schedule, year_fraction
+from src.indicators import apply_indicator_lag, indicator_rate_on
 from src.models import Deal, RateSpec
 
 
@@ -86,14 +87,22 @@ def annual_rate_on(
     if spec.rate_type != "FLOAT":
         raise ValueError(f"unsupported rate type: {spec.rate_type!r}")
 
-    was_repriced = bool(
-        repricing_dates_until(
+    if spec.indicator is not None:
+        repricing_date = _latest_repricing_date(
             deal,
+            spec,
             effective_date,
-            rate_spec=spec,
         )
-    )
-    if not was_repriced and spec.indicator_rate is not None:
+        fixing_date = apply_indicator_lag(
+            repricing_date or effective_date,
+            spec.indicator_lag,
+        )
+        indicator_rate = indicator_rate_on(
+            spec.indicator,
+            fixing_date,
+            deal.report_date,
+        )
+    elif spec.indicator_rate is not None:
         indicator_rate = spec.indicator_rate
     else:
         indicator_rate = proj_indicator_rate
@@ -183,6 +192,38 @@ def _scheduled_rate_on(
             return None
 
     return latest_rate.rate
+
+
+def _latest_repricing_date(
+    deal: Deal,
+    rate_spec: RateSpec,
+    effective_date: date,
+) -> date | None:
+    dates = {
+        repricing_date
+        for repricing_date in rate_spec.repricing_dates
+        if repricing_date <= effective_date
+    }
+    rule = rate_spec.repricing_rule
+    if rule is not None and rule.period == "ENDDATE":
+        if deal.maturity_date <= effective_date:
+            dates.add(deal.maturity_date)
+    elif (
+        rule is not None
+        and rule.period is not None
+        and rule.start_date is not None
+        and rule.start_date <= effective_date
+    ):
+        dates.update(
+            generate_schedule(
+                rule,
+                after_date=rule.start_date - timedelta(days=1),
+                end_date=effective_date,
+                include_end_date=False,
+            )
+        )
+
+    return max(dates) if dates else None
 
 
 def _apply_limits(

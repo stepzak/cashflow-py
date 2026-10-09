@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import TextIO
 
 from src.cashflow import build_cashflows
-from src.models import CashFlow, Deal
+from src.discounting import cbr_zero_coupon_curve, discount_cashflow
+from src.models import Deal, DiscountedCashFlow
 from src.parser import parse_deals
 
 
@@ -54,15 +55,27 @@ def write_cashflows(
             "interest_cf",
             "balance_before",
             "balance_after",
+            "discount_factor",
+            "discounted_principal_cf",
+            "discounted_interest_cf",
+            "present_value",
         )
     )
 
     for deal in deals:
+        curve = cbr_zero_coupon_curve(deal.report_date)
         for cashflow in build_cashflows(deal):
-            writer.writerow(cashflow_row(cashflow))
+            writer.writerow(
+                cashflow_row(
+                    discount_cashflow(cashflow, curve)
+                )
+            )
 
 
-def cashflow_row(cashflow: CashFlow) -> tuple[object, ...]:
+def cashflow_row(
+    discounted_cashflow: DiscountedCashFlow,
+) -> tuple[object, ...]:
+    cashflow = discounted_cashflow.cashflow
     return (
         cashflow.deal_id,
         cashflow.cashflow_date.isoformat(),
@@ -73,6 +86,10 @@ def cashflow_row(cashflow: CashFlow) -> tuple[object, ...]:
         cashflow.interest_cf,
         cashflow.balance_before,
         cashflow.balance_after,
+        discounted_cashflow.discount_factor,
+        discounted_cashflow.discounted_principal_cf,
+        discounted_cashflow.discounted_interest_cf,
+        discounted_cashflow.present_value,
     )
 
 
